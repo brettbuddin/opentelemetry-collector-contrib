@@ -16,6 +16,7 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componentstatus"
 	"go.opentelemetry.io/collector/receiver"
@@ -219,6 +220,10 @@ func (fmr *firehoseReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			zap.Error(err),
 		)
 	}
+
+	ctx = client.NewContext(ctx, client.Info{
+		Metadata: client.NewMetadata(r.Header),
+	})
 
 	statusCode, err := fmr.consumer.Consume(ctx, records, commonAttributes)
 	if err != nil {
