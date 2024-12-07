@@ -103,7 +103,8 @@ func TestFirehoseRequest(t *testing.T) {
 	defaultConsumer := newNopFirehoseConsumer(http.StatusOK, nil)
 	firehoseConsumerErr := errors.New("firehose consumer error")
 	cfg := &Config{
-		AccessKey: testFirehoseAccessKey,
+		AccessKey:       testFirehoseAccessKey,
+		IncludeMetadata: true, // TODO: Need to test what happens when this off.
 	}
 	var noRecords []firehoseRecord
 	testCases := map[string]struct {
