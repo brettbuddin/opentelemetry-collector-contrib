@@ -17,7 +17,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/collector/client"
 	"go.opentelemetry.io/collector/component"
 	"go.opentelemetry.io/collector/component/componenttest"
 	"go.opentelemetry.io/collector/config/confighttp"
@@ -42,6 +44,14 @@ func newNopFirehoseConsumer(statusCode int, err error) *nopFirehoseConsumer {
 
 func (nfc *nopFirehoseConsumer) Consume(context.Context, [][]byte, map[string]string) (int, error) {
 	return nfc.statusCode, nfc.err
+}
+
+type mockConsumer struct {
+	consume func(context.Context, [][]byte, map[string]string) (int, error)
+}
+
+func (ac *mockConsumer) Consume(ctx context.Context, records [][]byte, attributes map[string]string) (int, error) {
+	return ac.consume(ctx, records, attributes)
 }
 
 func TestStart(t *testing.T) {
@@ -181,6 +191,27 @@ func TestFirehoseRequest(t *testing.T) {
 			},
 			wantStatusCode: http.StatusOK,
 		},
+		"WithValidRecords/ClientInfoPropegated": {
+			headers: map[string]string{
+				"X-Hello": "World",
+			},
+			body: testFirehoseRequest(testFirehoseRequestID, []firehoseRecord{
+				testFirehoseRecord("test"),
+			}),
+			consumer: &mockConsumer{
+				consume: func(ctx context.Context, records [][]byte, commonAttributes map[string]string) (int, error) {
+					hello := client.FromContext(ctx).Metadata.Get("X-Hello")
+					if len(hello) != 1 {
+						return http.StatusInternalServerError, fmt.Errorf("x-hello header should have exactly one element")
+					}
+					if hello[0] != "World" {
+						return http.StatusInternalServerError, fmt.Errorf("x-hello header doesn't match")
+					}
+					return http.StatusOK, nil
+				},
+			},
+			wantStatusCode: http.StatusOK,
+		},
 	}
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
@@ -216,7 +247,7 @@ func TestFirehoseRequest(t *testing.T) {
 			got := httptest.NewRecorder()
 			r.ServeHTTP(got, request)
 
-			require.Equal(t, testCase.wantStatusCode, got.Code)
+			assert.Equal(t, testCase.wantStatusCode, got.Code)
 			var gotResponse firehoseResponse
 			require.NoError(t, json.Unmarshal(got.Body.Bytes(), &gotResponse))
 			require.Equal(t, request.Header.Get(headerFirehoseRequestID), gotResponse.RequestID)
