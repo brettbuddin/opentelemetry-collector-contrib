@@ -221,9 +221,11 @@ func (fmr *firehoseReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 
-	ctx = client.NewContext(ctx, client.Info{
-		Metadata: client.NewMetadata(r.Header),
-	})
+	if fmr.config.IncludeMetadata {
+		ctx = client.NewContext(ctx, client.Info{
+			Metadata: client.NewMetadata(r.Header),
+		})
+	}
 
 	statusCode, err := fmr.consumer.Consume(ctx, records, commonAttributes)
 	if err != nil {

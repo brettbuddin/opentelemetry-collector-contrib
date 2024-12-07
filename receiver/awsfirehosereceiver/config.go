@@ -22,6 +22,9 @@ type Config struct {
 	// This can be set when creating or updating the Firehose delivery
 	// stream.
 	AccessKey configopaque.String `mapstructure:"access_key"`
+
+	// TODO: Document this new option.
+	IncludeMetadata bool `mapstructure:"include_metadata"`
 }
 
 // Validate checks that the endpoint and record type exist and
