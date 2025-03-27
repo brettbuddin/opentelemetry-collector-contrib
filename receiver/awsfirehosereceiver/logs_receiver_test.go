@@ -179,6 +179,11 @@ func TestLogsConsumer(t *testing.T) {
 		logRecords1.AppendEmpty().Body().SetStr("record2")
 		logRecords1.AppendEmpty().Body().SetStr("record3")
 
+		// Clone the structures, because we're using MoveTo to produce a larger plog.Logs structure
+		// internally. The originals will be wiped out.
+		origLogs0 := cloneLogs(logs0)
+		origLogs1 := cloneLogs(logs1)
+
 		logsRemaining := []plog.Logs{logs0, logs1}
 		var unmarshaler unmarshalLogsFunc = func([]byte) (plog.Logs, error) {
 			logs := logsRemaining[0]
@@ -192,10 +197,19 @@ func TestLogsConsumer(t *testing.T) {
 		gotStatus, gotErr := lc.Consume(context.Background(), nextRecord, nil)
 		require.Equal(t, http.StatusOK, gotStatus)
 		require.NoError(t, gotErr)
-		require.Len(t, rc.results, 2)
-		assert.NoError(t, plogtest.CompareLogs(logs0, rc.results[0]))
-		assert.NoError(t, plogtest.CompareLogs(logs1, rc.results[1]))
+		require.Len(t, rc.results, 1)
+
+		expectLogs := plog.NewLogs()
+		origLogs0.ResourceLogs().At(0).CopyTo(expectLogs.ResourceLogs().AppendEmpty())
+		origLogs1.ResourceLogs().At(0).CopyTo(expectLogs.ResourceLogs().AppendEmpty())
+		assert.NoError(t, plogtest.CompareLogs(expectLogs, rc.results[0]))
 	})
+}
+
+func cloneLogs(l plog.Logs) plog.Logs {
+	clone := plog.NewLogs()
+	l.CopyTo(clone)
+	return clone
 }
 
 func newLogs(serviceName, scopeName string) (plog.Logs, plog.LogRecordSlice) {

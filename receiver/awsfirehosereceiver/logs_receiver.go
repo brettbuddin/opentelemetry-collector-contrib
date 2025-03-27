@@ -83,33 +83,41 @@ func (c *logsConsumer) Start(_ context.Context, host component.Host) error {
 // with each resulting plog.Logs being sent to the next consumer as
 // they are unmarshalled.
 func (c *logsConsumer) Consume(ctx context.Context, nextRecord nextRecordFunc, commonAttributes map[string]string) (int, error) {
+	logs := plog.NewLogs()
+
 	for {
 		record, err := nextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		logs, err := c.unmarshaler.UnmarshalLogs(record)
+
+		recordLogs, err := c.unmarshaler.UnmarshalLogs(record)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
 
-		if commonAttributes != nil {
-			for i := 0; i < logs.ResourceLogs().Len(); i++ {
-				rm := logs.ResourceLogs().At(i)
-				for k, v := range commonAttributes {
-					if _, found := rm.Resource().Attributes().Get(k); !found {
-						rm.Resource().Attributes().PutStr(k, v)
-					}
+		for i := range recordLogs.ResourceLogs().Len() {
+			rl := recordLogs.ResourceLogs().At(i)
+			rl.MoveTo(logs.ResourceLogs().AppendEmpty())
+		}
+	}
+
+	if commonAttributes != nil {
+		for i := 0; i < logs.ResourceLogs().Len(); i++ {
+			rm := logs.ResourceLogs().At(i)
+			for k, v := range commonAttributes {
+				if _, found := rm.Resource().Attributes().Get(k); !found {
+					rm.Resource().Attributes().PutStr(k, v)
 				}
 			}
 		}
+	}
 
-		if err := c.consumer.ConsumeLogs(ctx, logs); err != nil {
-			if consumererror.IsPermanent(err) {
-				return http.StatusBadRequest, err
-			}
-			return http.StatusServiceUnavailable, err
+	if err := c.consumer.ConsumeLogs(ctx, logs); err != nil {
+		if consumererror.IsPermanent(err) {
+			return http.StatusBadRequest, err
 		}
+		return http.StatusServiceUnavailable, err
 	}
 	return http.StatusOK, nil
 }
