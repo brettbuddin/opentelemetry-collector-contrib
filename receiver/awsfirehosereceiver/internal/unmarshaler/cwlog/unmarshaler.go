@@ -50,7 +50,8 @@ func (u *Unmarshaler) UnmarshalIntoLogs(dest plog.Logs, compressedRecord []byte)
 	if err != nil {
 		return err
 	}
-	for _, rl := range logs.ResourceLogs().All() {
+	for i := range logs.ResourceLogs().Len() {
+		rl := logs.ResourceLogs().At(i)
 		destRL := logs.ResourceLogs().AppendEmpty()
 		rl.CopyTo(destRL)
 	}

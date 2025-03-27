@@ -35,7 +35,8 @@ func NewErrLogs(err error) *NopLogsUnmarshaler {
 }
 
 func (u *NopLogsUnmarshaler) UnmarshalIntoLogs(dest plog.Logs, _ []byte) error {
-	for _, rl := range u.logs.ResourceLogs().All() {
+	for i := range u.logs.ResourceLogs().Len() {
+		rl := u.logs.ResourceLogs().At(i)
 		rl.CopyTo(dest.ResourceLogs().AppendEmpty())
 	}
 	return u.err
