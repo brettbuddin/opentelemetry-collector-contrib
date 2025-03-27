@@ -320,6 +320,10 @@ func (e plogUnmarshalerExtension) Shutdown(context.Context) error {
 	return nil
 }
 
+func (e plogUnmarshalerExtension) UnmarshalIntoLogs(plog.Logs, []byte) error {
+	return nil
+}
+
 func (e plogUnmarshalerExtension) UnmarshalLogs([]byte) (plog.Logs, error) {
 	return e.logs, nil
 }

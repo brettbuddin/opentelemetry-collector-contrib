@@ -21,6 +21,14 @@ import (
 
 const defaultLogsEncoding = cwlog.TypeStr
 
+type unmarshaler interface {
+	intoUnmarshaler
+}
+
+type intoUnmarshaler interface {
+	UnmarshalIntoLogs(plog.Logs, []byte) error
+}
+
 // logsConsumer implements the firehoseConsumer
 // to use a logs consumer and unmarshaler.
 type logsConsumer struct {
@@ -32,7 +40,7 @@ type logsConsumer struct {
 	consumer consumer.Logs
 	// unmarshaler is the configured plog.Unmarshaler
 	// to use when processing the records.
-	unmarshaler plog.Unmarshaler
+	unmarshaler unmarshaler
 }
 
 var _ firehoseConsumer = (*logsConsumer)(nil)
@@ -70,7 +78,7 @@ func (c *logsConsumer) Start(_ context.Context, host component.Host) error {
 		// TODO: make cwlogs an encoding extension
 		c.unmarshaler = cwlog.NewUnmarshaler(c.settings.Logger, c.settings.BuildInfo)
 	} else {
-		unmarshaler, err := loadEncodingExtension[plog.Unmarshaler](host, encoding, "logs")
+		unmarshaler, err := loadEncodingExtension[unmarshaler](host, encoding, "logs")
 		if err != nil {
 			return fmt.Errorf("failed to load encoding extension: %w", err)
 		}
@@ -83,12 +91,13 @@ func (c *logsConsumer) Start(_ context.Context, host component.Host) error {
 // with each resulting plog.Logs being sent to the next consumer as
 // they are unmarshalled.
 func (c *logsConsumer) Consume(ctx context.Context, nextRecord nextRecordFunc, commonAttributes map[string]string) (int, error) {
+	logs := plog.NewLogs()
 	for {
 		record, err := nextRecord()
 		if errors.Is(err, io.EOF) {
 			break
 		}
-		logs, err := c.unmarshaler.UnmarshalLogs(record)
+		err = c.unmarshaler.UnmarshalIntoLogs(logs, record)
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
@@ -103,13 +112,13 @@ func (c *logsConsumer) Consume(ctx context.Context, nextRecord nextRecordFunc, c
 				}
 			}
 		}
+	}
 
-		if err := c.consumer.ConsumeLogs(ctx, logs); err != nil {
-			if consumererror.IsPermanent(err) {
-				return http.StatusBadRequest, err
-			}
-			return http.StatusServiceUnavailable, err
+	if err := c.consumer.ConsumeLogs(ctx, logs); err != nil {
+		if consumererror.IsPermanent(err) {
+			return http.StatusBadRequest, err
 		}
+		return http.StatusServiceUnavailable, err
 	}
 	return http.StatusOK, nil
 }

@@ -34,6 +34,13 @@ func NewErrLogs(err error) *NopLogsUnmarshaler {
 	return &NopLogsUnmarshaler{logs: plog.NewLogs(), err: err}
 }
 
+func (u *NopLogsUnmarshaler) UnmarshalIntoLogs(dest plog.Logs, _ []byte) error {
+	for _, rl := range u.logs.ResourceLogs().All() {
+		rl.CopyTo(dest.ResourceLogs().AppendEmpty())
+	}
+	return u.err
+}
+
 // Unmarshal deserializes the records into logs.
 func (u *NopLogsUnmarshaler) UnmarshalLogs([]byte) (plog.Logs, error) {
 	return u.logs, u.err

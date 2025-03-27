@@ -45,6 +45,18 @@ func NewUnmarshaler(logger *zap.Logger, buildInfo component.BuildInfo) *Unmarsha
 	return &Unmarshaler{logger: logger, buildInfo: buildInfo}
 }
 
+func (u *Unmarshaler) UnmarshalIntoLogs(dest plog.Logs, compressedRecord []byte) error {
+	logs, err := u.UnmarshalLogs(compressedRecord)
+	if err != nil {
+		return err
+	}
+	for _, rl := range logs.ResourceLogs().All() {
+		destRL := logs.ResourceLogs().AppendEmpty()
+		rl.CopyTo(destRL)
+	}
+	return nil
+}
+
 // UnmarshalLogs deserializes the given record as CloudWatch Logs events
 // into a plog.Logs, grouping logs by owner (account ID), log group, and
 // log stream. Logs are assumed to be gzip-compressed as specified at
