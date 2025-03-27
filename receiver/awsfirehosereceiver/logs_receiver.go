@@ -101,14 +101,14 @@ func (c *logsConsumer) Consume(ctx context.Context, nextRecord nextRecordFunc, c
 		if err != nil {
 			return http.StatusBadRequest, err
 		}
+	}
 
-		if commonAttributes != nil {
-			for i := 0; i < logs.ResourceLogs().Len(); i++ {
-				rm := logs.ResourceLogs().At(i)
-				for k, v := range commonAttributes {
-					if _, found := rm.Resource().Attributes().Get(k); !found {
-						rm.Resource().Attributes().PutStr(k, v)
-					}
+	if commonAttributes != nil {
+		for i := 0; i < logs.ResourceLogs().Len(); i++ {
+			rm := logs.ResourceLogs().At(i)
+			for k, v := range commonAttributes {
+				if _, found := rm.Resource().Attributes().Get(k); !found {
+					rm.Resource().Attributes().PutStr(k, v)
 				}
 			}
 		}

@@ -52,7 +52,7 @@ func (u *Unmarshaler) UnmarshalIntoLogs(dest plog.Logs, compressedRecord []byte)
 	}
 	for i := range logs.ResourceLogs().Len() {
 		rl := logs.ResourceLogs().At(i)
-		destRL := logs.ResourceLogs().AppendEmpty()
+		destRL := dest.ResourceLogs().AppendEmpty()
 		rl.CopyTo(destRL)
 	}
 	return nil
